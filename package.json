@@ -1,0 +1,31 @@
+{
+  "name": "ParkitectModRelayDownloader",
+  "version": "1.0.0",
+  "description": "Parkitect Mod Relay Api",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "author": {
+    "name": "Quexten",
+    "email": "mail@quexten.com",
+    "url": "https://github.com/quexten"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.16.2",
+    "node-zip": "^1.1.1",
+    "request": "^2.83.0",
+    "rimraf": "^2.6.2",
+    "steam-workshop": "0.0.2",
+    "steamcmd-interface": "1.1.0",
+    "zip-folder": "^1.0.0"
+  },
+  "contributors": [
+    {
+      "name": "Manit",
+      "url": "https://github.com/themarnit"
+    }
+  ]
+}
