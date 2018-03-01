@@ -1,7 +1,4 @@
 # ParkitectModRelayDownloader
 
-## Build
-``` docker build -t quexten/parkitectmodrelaydownloader . ```
-
-## Run
-``` docker run --name parkitect-downloader quexten/parkitectmodrelaydownloader```
+## RUN
+``` docker run --name -e STEAM_USER=[YOUR STEAM USER] -e STEAM_PASSWORD=[YOUR STEAM PASSWORD] -e FILES_ENDPOINT=[YOUR FILES ENDPOINT] -v [HOST WORKSHOP PATH]:/workshop quexten/parkitectmodrelaydownloader ```
