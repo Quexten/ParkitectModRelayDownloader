@@ -8,15 +8,12 @@ var express    = require('express');
 var app        = express();
 var bodyParser = require('body-parser');
 
-var username = process.env.STEAM_USER
-var password = process.env.STEAM_PASSWORD
-var port = 80;
-var filesEndpoint = process.env.FILES_ENDPOINT
+//var filesEndpoint = process.env.FILES_ENDPOINT
+var filesEndpoint = 'http://localhost'
 
-const steamcmd = new SteamCmd({
-	username: username,
-	password: password
-})
+var port = 80
+
+const steamcmd = new SteamCmd()
 steamcmd.prep()
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -24,19 +21,19 @@ app.use(bodyParser.json());
 
 var router = express.Router();
 
+var currentDownload = null
+var currentListener = null
+var process = null
+
 router.get('/', function(req, res) {
+	if (req.baseUrl == "/login") {
+		login()
+	}
+
 	if (req.baseUrl == "/download") {
 		var item_id = req.query.item_id
-		console.log("download:" + item_id)
 
-		const commands = [
-			steamcmd.getLoginStr(),
-			'workshop_download_item 453090 ' + item_id
-		]
-		const runObj = steamcmd.run(commands)
-		runObj.outputStream.on('data', data => { console.log(data) })
-		runObj.outputStream.on('error', err => { console.error(err) })
-		runObj.outputStream.on('close', exitCode => {
+		queueDownload({ id:item_id, callback: function () {
 			var contentPath = getPath() + item_id + '/'
 			var files = fs.readdirSync(contentPath)
 			var isPath = files.length == 1 && fs.lstatSync(contentPath + files[0]).isDirectory()
@@ -67,16 +64,88 @@ router.get('/', function(req, res) {
 
 				console.log("pack downloaded" + dirPath)
 			}
-		})
+		}})
 	}
 });
 
 app.use('/download', router);
+app.use('/login', router);
 app.listen(port);
 
+function login () {
+	var spawn = require('child_process').spawn
+	process = spawn(steamcmd.exePath,['-i'])
+
+	var STATE_STARTING = 0
+	var STATE_LOGGING_IN = 1
+	var STATE_LOGGED_IN = 2
+	var STATE_DONE = 3
+	var state = STATE_STARTING
+
+	process.stdout.on('data',function (data) {
+		console.log(data.toString())
+		switch (state) {
+			case STATE_STARTING:
+				if (data.toString().includes("OK")) {
+					state = STATE_LOGGING_IN
+					process.stdin.write('login anonymous\n')
+				}
+				break
+			case STATE_LOGGING_IN:
+				if (data.toString().includes("OK")) {
+					state = STATE_LOGGED_IN
+				}
+				break
+			case STATE_LOGGED_IN:
+				if (data.toString().includes("OK")) {
+					state = STATE_DONE
+					console.log("logged in successfully, now listening")
+				}
+				break
+			case STATE_DONE:
+				if (currentListener != null) {
+					currentListener(data.toString())
+				}
+				break
+		}
+	})
+}
+
+function queueDownload (request) {
+	console.log(JSON.stringify(request))
+	if (currentDownload == null) {
+		currentDownload = request
+		executeDownload(currentDownload)
+	} else {
+		queueDownloadRecursive(request)
+	}
+}
+
+function queueDownloadRecursive (download, id, callback) {
+	if (download.next == null) {
+		download.next = { id:id, callback:callback }
+	} else {
+		queueDownloadRecursive(download.next, id, callback)
+	}
+}
+
+function executeDownload (request) {
+	console.log("write" + 'workshop_download_item 453090 ' + request.id)
+	process.stdin.write('workshop_download_item 453090 ' + request.id + '\n')
+	currentListener = function (data) {
+		if (data.toString().includes("Success")) {
+			request.callback()
+
+			currentDownload = request.next
+			if (currentDownload != null)
+				executeDownload(currentDownload)
+		}
+	}
+}
 
 function workshopPath () {
-	return "/root/Steam/steamapps/workshop/"
+	// /root/Steam/steamapps/workshop
+	return "./node_modules/steamcmd-interface/steamcmd_bin/win32/steamapps/workshop/"
 }
 
 function getPath () {
